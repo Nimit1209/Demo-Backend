@@ -1175,9 +1175,9 @@ public class VideoEditingService {
             timelineEndTime = roundToThreeDecimals(timelineEndTime);
         }
 
-        addImageToTimeline(sessionId, imagePath, layer, timelineStartTime, timelineEndTime, positionX, positionY, scale, opacity, filters);
+        // Pass isElement to addImageToTimeline
+        addImageToTimeline(sessionId, imagePath, layer, timelineStartTime, timelineEndTime, positionX, positionY, scale, opacity, filters, isElement);
     }
-
     public void addImageToTimeline(
             String sessionId,
             String imagePath,
@@ -1188,11 +1188,12 @@ public class VideoEditingService {
             Integer positionY,
             Double scale,
             Double opacity,
-            Map<String, String> filters
+            Map<String, String> filters,
+            boolean isElement // New parameter
     ) {
         TimelineState timelineState = getTimelineState(sessionId);
 
-        // MODIFIED: Round timeline times to three decimal places
+        // Round timeline times to three decimal places
         timelineStartTime = roundToThreeDecimals(timelineStartTime);
         if (timelineEndTime == null) {
             timelineEndTime = roundToThreeDecimals(timelineStartTime + 5.0);
@@ -1213,7 +1214,8 @@ public class VideoEditingService {
         imageSegment.setScale(scale != null ? scale : 1.0);
         imageSegment.setOpacity(opacity != null ? opacity : 1.0);
         imageSegment.setTimelineStartTime(timelineStartTime);
-        imageSegment.setTimelineEndTime(timelineEndTime == null ? timelineStartTime + 5.0 : timelineEndTime);
+        imageSegment.setTimelineEndTime(timelineEndTime);
+        imageSegment.setElement(isElement); // Set the isElement field
 
         try {
             File imageFile = new File(baseDir, imagePath);
@@ -1402,6 +1404,7 @@ public class VideoEditingService {
 
     public void addKeyframeToSegment(String sessionId, String segmentId, String segmentType, String property, Keyframe keyframe) {
         EditSession session = getSession(sessionId);
+        keyframe.setTime(roundToThreeDecimals(keyframe.getTime()));
         switch (segmentType.toLowerCase()) {
             case "video":
                 VideoSegment video = session.getTimelineState().getSegments().stream()
@@ -1439,6 +1442,8 @@ public class VideoEditingService {
 
     public void removeKeyframeFromSegment(String sessionId, String segmentId, String segmentType, String property, double time) {
         EditSession session = getSession(sessionId);
+        // Round the time to three decimal places for consistency
+        time = roundToThreeDecimals(time);
         switch (segmentType.toLowerCase()) {
             case "video":
                 VideoSegment video = session.getTimelineState().getSegments().stream()

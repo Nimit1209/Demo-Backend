@@ -8,6 +8,7 @@ import com.example.videoeditor.repository.UserRepository;
 import com.example.videoeditor.security.JwtUtil;
 import com.example.videoeditor.service.VideoEditingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -22,10 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -95,6 +93,25 @@ public class ProjectController {
             @PathVariable Long projectId,
             @RequestParam String sessionId) throws JsonProcessingException {
         videoEditingService.saveProject(sessionId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{projectId}/saveForUndoRedo")
+    public ResponseEntity<?> saveForUndoRedo(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long projectId,
+            @RequestParam String sessionId,
+            @RequestBody Map<String, Object> payload) throws JsonProcessingException {
+        // Validate token and user
+        User user = getUserFromToken(token);
+
+        // Extract timeline_state from payload
+        ObjectMapper mapper = new ObjectMapper();
+        String timelineStateJson = mapper.writeValueAsString(payload.get("timelineState"));
+
+        // Save project with updated timeline_state for undo/redo
+        videoEditingService.saveForUndoRedo(projectId, sessionId, timelineStateJson);
+
         return ResponseEntity.ok().build();
     }
 
@@ -297,6 +314,7 @@ public class ProjectController {
             Integer positionX = request.get("positionX") != null ? Integer.valueOf(request.get("positionX").toString()) : null;
             Integer positionY = request.get("positionY") != null ? Integer.valueOf(request.get("positionY").toString()) : null;
             Double opacity = request.get("opacity") != null ? Double.valueOf(request.get("opacity").toString()) : null; // Added opacity
+            String alignment = (String) request.get("alignment"); // New parameter
 
             if (text == null || layer == null || timelineStartTime == null || timelineEndTime == null) {
                 return ResponseEntity.badRequest().body("Missing required parameters: text, layer, timelineStartTime, timelineEndTime, scale");
@@ -304,9 +322,13 @@ public class ProjectController {
             if (opacity != null && (opacity < 0 || opacity > 1)) {
                 return ResponseEntity.badRequest().body("Opacity must be between 0 and 1");
             }
+            // Validate alignment
+            if (alignment != null && !Arrays.asList("left", "right", "center").contains(alignment)) {
+                return ResponseEntity.badRequest().body("Alignment must be 'left', 'right', or 'center'");
+            }
 
             videoEditingService.addTextToTimeline(sessionId, text, layer, timelineStartTime, timelineEndTime,
-                    fontFamily, scale, fontColor, backgroundColor, positionX, positionY, opacity);
+                    fontFamily, scale, fontColor, backgroundColor, positionX, positionY, opacity, alignment);
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -336,6 +358,7 @@ public class ProjectController {
             Double timelineStartTime = request.containsKey("timelineStartTime") ? Double.valueOf(request.get("timelineStartTime").toString()) : null;
             Double timelineEndTime = request.containsKey("timelineEndTime") ? Double.valueOf(request.get("timelineEndTime").toString()) : null;
             Integer layer = request.containsKey("layer") ? Integer.valueOf(request.get("layer").toString()) : null;
+            String alignment = (String) request.get("alignment"); // New parameter
             @SuppressWarnings("unchecked")
             Map<String, List<Map<String, Object>>> keyframes = request.containsKey("keyframes") ? (Map<String, List<Map<String, Object>>>) request.get("keyframes") : null;
 
@@ -357,12 +380,19 @@ public class ProjectController {
             if (segmentId == null) {
                 return ResponseEntity.badRequest().body("Missing required parameter: segmentId");
             }
+            if (text == null || text.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Text content cannot be null or empty");
+            }
             if (opacity != null && (opacity < 0 || opacity > 1)) {
                 return ResponseEntity.badRequest().body("Opacity must be between 0 and 1");
             }
+            // Validate alignment
+            if (alignment != null && !Arrays.asList("left", "right", "center").contains(alignment)) {
+                return ResponseEntity.badRequest().body("Alignment must be 'left', 'right', or 'center'");
+            }
 
             videoEditingService.updateTextSegment(sessionId, segmentId, text, fontFamily, scale,
-                    fontColor, backgroundColor, positionX, positionY, opacity, timelineStartTime, timelineEndTime, layer, parsedKeyframes);
+                    fontColor, backgroundColor, positionX, positionY, opacity, timelineStartTime, timelineEndTime, layer, alignment,parsedKeyframes);
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {

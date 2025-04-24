@@ -45,7 +45,7 @@ public class VideoService {
         String fullPath = Paths.get(baseDir, videoPath).toString();
 
         ProcessBuilder builder = new ProcessBuilder(
-                "/Users/nimitpatel/Desktop/ffmpeg-2025-02-26-git-99e2af4e78-full_build/bin/ffmpeg",
+                "D:\\ffmpeg-2025-02-17-git-b92577405b-full_build\\bin\\ffprobe.exe",
                 "-v", "error",
                 "-show_entries", "format=duration",
                 "-of", "default=noprint_wrappers=1:nokey=1",
